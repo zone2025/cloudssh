@@ -103,10 +103,12 @@ export class SSHSession {
   }
 
   private async startKEX(): Promise<void> {
+    console.log('Starting KEX...');
     this.kexInitLocal = KEXInitBuilder.build();
     const packet = SSHPacketBuilder.build(
       this.kexInitLocal, 8, null, this.seqNumSend++
     );
+    console.log('Sending KEXINIT, length:', packet.length);
     await this.writeSocket(packet);
 
     this.ecdhKeyPair = await ECDHKeyExchange.generateKeyPair();
@@ -118,6 +120,7 @@ export class SSHSession {
     const ecdhPacket = SSHPacketBuilder.build(
       ecdhInit, 8, null, this.seqNumSend++
     );
+    console.log('Sending ECDH_INIT, length:', ecdhPacket.length);
     await this.writeSocket(ecdhPacket);
   }
 
@@ -168,16 +171,20 @@ export class SSHSession {
   }
 
   private async handleKEXPacket(msgType: number, payload: Uint8Array): Promise<void> {
+    console.log('KEX packet:', msgType);
     switch (msgType) {
       case SSH_MSG_KEXINIT:
+        console.log('Received KEXINIT, saving remote KEXINIT');
         this.kexInitRemote = payload;
         break;
 
       case SSH_MSG_KEX_ECDH_REPLY:
+        console.log('Received ECDH_REPLY');
         await this.handleECDHReply(payload);
         break;
 
       case SSH_MSG_NEWKEYS:
+        console.log('Received NEWKEYS');
         await this.enableEncryption();
 
         const newKeys = new Uint8Array([SSH_MSG_NEWKEYS]);
