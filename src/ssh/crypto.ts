@@ -32,11 +32,11 @@ export class SSHAESGCMCipher {
     const seq = seqNum ?? this.seqNum++;
     const nonce = this.buildNonce(seq);
 
-    const alg: AesGcmParams = { name: 'AES-GCM', iv: nonce, tagLength: 128 };
+    const alg: Record<string, unknown> = { name: 'AES-GCM', iv: nonce, tagLength: 128 };
     if (aad) alg.additionalData = aad;
 
     const encrypted = new Uint8Array(
-      await crypto.subtle.encrypt(alg, this.key, plaintext)
+      await crypto.subtle.encrypt(alg as AesGcmParams, this.key, plaintext)
     );
 
     return encrypted;
@@ -47,12 +47,12 @@ export class SSHAESGCMCipher {
     const seq = seqNum ?? this.seqNum++;
     const nonce = this.buildNonce(seq);
 
-    const alg: AesGcmParams = { name: 'AES-GCM', iv: nonce, tagLength: 128 };
+    const alg: Record<string, unknown> = { name: 'AES-GCM', iv: nonce, tagLength: 128 };
     if (aad) alg.additionalData = aad;
 
     try {
       const decrypted = new Uint8Array(
-        await crypto.subtle.decrypt(alg, this.key, ciphertext)
+        await crypto.subtle.decrypt(alg as AesGcmParams, this.key, ciphertext)
       );
       return decrypted;
     } catch (e) {

@@ -1,5 +1,5 @@
 import { SessionKeys } from '../types';
-import { concat } from './utils';
+import { concat, encodeString } from './utils';
 
 export class KeyDerivation {
   static async deriveKeys(
@@ -37,9 +37,12 @@ export class KeyDerivation {
     const result = new Uint8Array(needed);
     let offset = 0;
 
+    // session_id must be encoded as SSH string (4-byte length prefix + value)
+    const sessionIdStr = encodeString(sessionId);
+
     let key = new Uint8Array(
       await crypto.subtle.digest('SHA-256',
-        concat(K, H, new TextEncoder().encode(X), sessionId)
+        concat(K, H, new TextEncoder().encode(X), sessionIdStr)
       )
     );
     result.set(key.slice(0, Math.min(hashLen, needed)), 0);
@@ -48,7 +51,7 @@ export class KeyDerivation {
     for (let i = 1; i < rounds; i++) {
       key = new Uint8Array(
         await crypto.subtle.digest('SHA-256',
-          concat(K, H, key, sessionId)
+          concat(K, H, key, sessionIdStr)
         )
       );
       const remaining = needed - offset;
