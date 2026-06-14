@@ -5,171 +5,100 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  color: #e0e0e0;
-  min-height: 100vh;
-}
-
-#app {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-#auth-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 80vh;
-}
-
-.auth-header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.auth-header h1 {
-  font-size: 3rem;
-  font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 0.5rem;
-}
-
-.auth-header p {
-  color: #8892b0;
-  font-size: 1.1rem;
-}
-
-#connection-form {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 2rem;
-  width: 100%;
-  max-width: 400px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: #a8b2d1;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #e0e0e0;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
-}
-
-.form-group input::placeholder {
-  color: #5a6a8a;
-}
-
-.btn-connect {
-  width: 100%;
-  padding: 0.75rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-connect:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
-}
-
-.btn-connect:active {
-  transform: translateY(0);
-}
-
-#toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 8px 8px 0 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-bottom: none;
-}
-
-#connection-info {
-  color: #a8b2d1;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.9rem;
+  background-color: #0a0a0a;
+  color: #4af626;
+  min-height: 100vh;
+  overflow: hidden;
 }
 
-#disconnect-btn {
-  padding: 0.5rem 1rem;
-  background: rgba(234, 108, 115, 0.2);
-  color: #ea6c73;
-  border: 1px solid rgba(234, 108, 115, 0.3);
-  border-radius: 6px;
-  font-size: 0.85rem;
+.scanlines {
+  position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+  background-size: 100% 4px;
+  pointer-events: none; z-index: 50;
+}
+
+.flicker {
+  animation: flicker 0.15s infinite;
+  pointer-events: none; position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(74, 246, 38, 0.02); z-index: 49;
+}
+
+@keyframes flicker {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 0.9; }
+}
+
+.terminal-input {
+  background: transparent; border: none;
+  border-bottom: 1px solid #3c4b36; color: #4af626;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 8px 0; width: 100%; outline: none;
+  transition: border-color 0.2s;
+}
+
+.terminal-input:focus {
+  border-bottom: 1px solid #4af626;
+  box-shadow: none;
+}
+
+.terminal-input::placeholder {
+  color: #3c4b36;
+}
+
+.blinking-cursor::after {
+  content: '\2588'; color: #14d1ff;
+  animation: blink 1s step-end infinite;
+  margin-left: 4px; font-size: 0.9em;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cyber-box {
+  background-color: #121212;
+  border: 1px solid #1f1f1f;
+}
+
+.cyber-button {
+  border: 1px solid #4af626; color: #4af626;
+  transition: all 0.2s ease; position: relative; overflow: hidden;
   cursor: pointer;
-  transition: all 0.3s ease;
 }
 
-#disconnect-btn:hover {
-  background: rgba(234, 108, 115, 0.3);
-  border-color: rgba(234, 108, 115, 0.5);
+.cyber-button:hover {
+  background-color: #4af626;
+  color: #0a0a0a;
 }
 
-#terminal-container {
-  background: #0a0e14;
-  border-radius: 0 0 8px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-top: none;
-  padding: 0.5rem;
-  min-height: 500px;
+.cursor-blink {
+  animation: blink 1s step-end infinite;
 }
 
-#terminal-container .xterm {
-  height: 500px;
+.scanline {
+  background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+  background-size: 100% 4px;
 }
 
-@media (max-width: 768px) {
-  #app {
-    padding: 1rem;
-  }
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
 
-  .auth-header h1 {
-    font-size: 2rem;
-  }
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(28, 27, 27, 0.5);
+}
 
-  #connection-form {
-    padding: 1.5rem;
-  }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(60, 75, 54, 0.8);
+  border-radius: 4px;
+}
 
-  #terminal-container .xterm {
-    height: 400px;
-  }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(134, 149, 125, 0.8);
 }
