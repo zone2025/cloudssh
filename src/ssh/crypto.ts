@@ -13,7 +13,7 @@ export class SSHAESGCMCipher {
     this.key = await crypto.subtle.importKey(
       'raw',
       this.rawKey,
-      { name: 'AES-GCM', length: 256 },
+      { name: 'AES-GCM', length: this.rawKey.length * 8 },
       false,
       ['encrypt', 'decrypt']
     );

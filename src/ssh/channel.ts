@@ -96,4 +96,12 @@ export class SSHChannel {
       encodeUint32(0)
     );
   }
+
+  buildWindowAdjust(bytesToAdd: number): Uint8Array {
+    return concat(
+      new Uint8Array([SSH_MSG_CHANNEL_WINDOW_ADJUST]),
+      encodeUint32(this.remoteChannelID),
+      encodeUint32(bytesToAdd)
+    );
+  }
 }

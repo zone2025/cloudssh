@@ -4,9 +4,9 @@
   "description": "纯 Cloudflare 架构 Web SSH 工具",
   "main": "src/worker/index.ts",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "build:frontend": "cd frontend && npm install && npm run build",
+    "dev": "node scripts/build-html.js && wrangler dev",
+    "deploy": "node scripts/build-html.js && wrangler deploy",
+    "build:frontend": "node scripts/build-html.js",
     "test": "vitest run"
   },
   "keywords": ["ssh", "cloudflare", "web-terminal"],

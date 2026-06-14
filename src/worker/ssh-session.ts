@@ -22,7 +22,7 @@ import {
 } from '../types';
 import { SSHTransport } from '../ssh/transport';
 import { SSHPacketParser, SSHPacketBuilder } from '../ssh/packet';
-import { KEXInitBuilder } from '../ssh/kex';
+import { KEXInitBuilder, parseKEXInit, negotiate } from '../ssh/kex';
 import { ECDHKeyExchange } from '../ssh/kex-ecdh';
 import { KeyDerivation } from '../ssh/keys';
 import { SSHAESGCMCipher } from '../ssh/crypto';
@@ -61,6 +61,10 @@ export class SSHSession {
 
   private state: 'connecting' | 'version' | 'kex' | 'auth' | 'shell' | 'ready'
     = 'connecting';
+
+  private versionRawBuffer: Uint8Array = new Uint8Array(0);
+  private negotiatedCipherC2S: string = 'aes256-gcm@openssh.com';
+  private negotiatedCipherS2C: string = 'aes256-gcm@openssh.com';
 
   constructor(ws: WebSocket, socket: any, config: SSHConnectionConfig) {
     this.ws = ws;
@@ -101,24 +105,61 @@ export class SSHSession {
         }
 
         if (this.state === 'version') {
-          const crlfIndex = findCRLF(value);
-          if (crlfIndex === -1) {
-            this.transport.handleVersionExchange(decoder.decode(value));
-            continue;
+          const merged = new Uint8Array(this.versionRawBuffer.length + value.length);
+          merged.set(this.versionRawBuffer);
+          merged.set(value, this.versionRawBuffer.length);
+          this.versionRawBuffer = merged;
+
+          let scanOffset = 0;
+          let versionFound = false;
+          let remaining: Uint8Array = new Uint8Array(0);
+
+          while (scanOffset < this.versionRawBuffer.length) {
+            let lfIndex = -1;
+            for (let i = scanOffset; i < this.versionRawBuffer.length; i++) {
+              if (this.versionRawBuffer[i] === 0x0a) {
+                lfIndex = i;
+                break;
+              }
+            }
+
+            if (lfIndex === -1) {
+              break;
+            }
+
+            const lineBytes = this.versionRawBuffer.slice(scanOffset, lfIndex + 1);
+            scanOffset = lfIndex + 1;
+
+            let lineStr = decoder.decode(lineBytes);
+            if (lineStr.endsWith('\n')) lineStr = lineStr.slice(0, -1);
+            if (lineStr.endsWith('\r')) lineStr = lineStr.slice(0, -1);
+
+            if (lineStr.startsWith('SSH-')) {
+              this.transport.handleVersionExchange(lineStr + '\r\n');
+              remaining = this.versionRawBuffer.slice(scanOffset);
+              versionFound = true;
+              break;
+            } else {
+              console.log('[SSH] Pre-version banner: ' + lineStr);
+            }
           }
 
-          const versionPart = value.slice(0, crlfIndex + 2);
-          const remaining = value.slice(crlfIndex + 2);
-          this.transport.handleVersionExchange(decoder.decode(versionPart));
-          console.log('[SSH] Version exchange complete, remote=' + this.transport.getRemoteVersion());
-          this.sendStatus('版本交换完成，正在密钥协商...');
-          this.state = 'kex';
-          await this.startKEX();
+          if (versionFound) {
+            this.versionRawBuffer = new Uint8Array(0);
+            console.log('[SSH] Version exchange complete, remote=' + this.transport.getRemoteVersion());
+            this.sendStatus('版本交换完成，正在密钥协商...');
+            this.state = 'kex';
+            await this.startKEX();
 
-          if (remaining.length > 0) {
-            console.log('[SSH] Remaining data after version: ' + remaining.length + ' bytes');
-            this.packetParser.feed(remaining);
-            await this.processPackets();
+            if (remaining.length > 0) {
+              console.log('[SSH] Remaining data after version: ' + remaining.length + ' bytes');
+              this.packetParser.feed(remaining);
+              await this.processPackets();
+            }
+          } else {
+            if (scanOffset > 0) {
+              this.versionRawBuffer = this.versionRawBuffer.slice(scanOffset);
+            }
           }
         } else {
           console.log('[SSH] Received ' + value.length + ' bytes, state=' + this.state);
@@ -207,10 +248,23 @@ export class SSHSession {
   private async handleKEXPacket(msgType: number, payload: Uint8Array): Promise<void> {
     console.log('[KEX] handleKEXPacket: msgType=' + msgType);
     switch (msgType) {
-      case SSH_MSG_KEXINIT:
+      case SSH_MSG_KEXINIT: {
         this.kexInitRemote = payload;
         console.log('[KEX] Received KEXINIT from server');
+        try {
+          const serverKex = parseKEXInit(payload);
+          const clientKex = parseKEXInit(this.kexInitLocal!);
+          this.negotiatedCipherC2S = negotiate(clientKex.encryptionC2S, serverKex.encryptionC2S);
+          this.negotiatedCipherS2C = negotiate(clientKex.encryptionS2C, serverKex.encryptionS2C);
+          console.log(`[KEX] Negotiated Cipher C2S: ${this.negotiatedCipherC2S}, S2C: ${this.negotiatedCipherS2C}`);
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : String(e);
+          console.error('[KEX] Algorithm negotiation failed:', errMsg);
+          this.sendError('算法协商失败: ' + errMsg);
+          this.close();
+        }
         break;
+      }
 
       case SSH_MSG_KEX_ECDH_REPLY:
         console.log('[KEX] Received ECDH_REPLY');
@@ -297,20 +351,30 @@ export class SSHSession {
 
   private async enableEncryption(): Promise<void> {
     const keys = this.derivedKeys;
-    console.log('[KEX] encKeyC2S len=' + keys.encKeyClientToServer.length + ', ivC2S len=' + keys.ivClientToServer.length);
+    let encKeyC2S = keys.encKeyClientToServer;
+    let encKeyS2C = keys.encKeyServerToClient;
+
+    if (this.negotiatedCipherC2S === 'aes128-gcm@openssh.com') {
+      encKeyC2S = encKeyC2S.slice(0, 16);
+    }
+    if (this.negotiatedCipherS2C === 'aes128-gcm@openssh.com') {
+      encKeyS2C = encKeyS2C.slice(0, 16);
+    }
+
+    console.log('[KEX] encKeyC2S len=' + encKeyC2S.length + ', ivC2S len=' + keys.ivClientToServer.length);
     console.log('[KEX] ivC2S hex=' + Array.from(keys.ivClientToServer).map(b => b.toString(16).padStart(2, '0')).join(''));
-    console.log('[KEX] encKeyC2S hex=' + Array.from(keys.encKeyClientToServer).map(b => b.toString(16).padStart(2, '0')).join(''));
+    console.log('[KEX] encKeyC2S hex=' + Array.from(encKeyC2S).map(b => b.toString(16).padStart(2, '0')).join(''));
     console.log('[KEX] ivS2C hex=' + Array.from(keys.ivServerToClient).map(b => b.toString(16).padStart(2, '0')).join(''));
-    console.log('[KEX] encKeyS2C hex=' + Array.from(keys.encKeyServerToClient).map(b => b.toString(16).padStart(2, '0')).join(''));
+    console.log('[KEX] encKeyS2C hex=' + Array.from(encKeyS2C).map(b => b.toString(16).padStart(2, '0')).join(''));
 
     this.encryptCipher = new SSHAESGCMCipher(
-      keys.encKeyClientToServer,
+      encKeyC2S,
       keys.ivClientToServer
     );
     await this.encryptCipher.init();
 
     this.decryptCipher = new SSHAESGCMCipher(
-      keys.encKeyServerToClient,
+      encKeyS2C,
       keys.ivServerToClient
     );
     await this.decryptCipher.init();
@@ -429,6 +493,8 @@ export class SSHSession {
       case SSH_MSG_CHANNEL_DATA: {
         const outputData = this.channel.handleChannelData(payload);
         this.ws.send(outputData.slice().buffer as ArrayBuffer);
+        const adjustMsg = this.channel.buildWindowAdjust(outputData.length);
+        await this.sendEncrypted(adjustMsg);
         break;
       }
 

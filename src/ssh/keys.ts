@@ -37,30 +37,31 @@ export class KeyDerivation {
     const result = new Uint8Array(needed);
     let offset = 0;
 
-    const HStr = encodeString(H);
-    const sessionIdStr = encodeString(sessionId);
     const XBytes = new TextEncoder().encode(X);
 
     if (X === 'A') {
-      console.log('[KDF] Input lengths: K=' + K.length + ' H=' + H.length + ' HStr=' + HStr.length + ' X=' + XBytes.length + ' sessionId=' + sessionId.length + ' sessionIdStr=' + sessionIdStr.length);
+      console.log('[KDF] Input lengths: K=' + K.length + ' H=' + H.length + ' X=' + XBytes.length + ' sessionId=' + sessionId.length);
     }
 
-    let key = new Uint8Array(
+    // K1 = HASH(K || H || X || sessionId)
+    let currentHash = new Uint8Array(
       await crypto.subtle.digest('SHA-256',
-        concat(K, HStr, XBytes, sessionIdStr)
+        concat(K, H, XBytes, sessionId)
       )
     );
-    result.set(key.slice(0, Math.min(hashLen, needed)), 0);
+    result.set(currentHash.slice(0, Math.min(hashLen, needed)), 0);
     offset += hashLen;
 
+    // For Kn (n > 1): Kn = HASH(K || H || K1 || ... || Kn-1)
     for (let i = 1; i < rounds; i++) {
-      key = new Uint8Array(
+      const prevKeys = result.slice(0, offset);
+      currentHash = new Uint8Array(
         await crypto.subtle.digest('SHA-256',
-          concat(K, HStr, key, sessionIdStr)
+          concat(K, H, prevKeys)
         )
       );
       const remaining = needed - offset;
-      result.set(key.slice(0, Math.min(hashLen, remaining)), offset);
+      result.set(currentHash.slice(0, Math.min(hashLen, remaining)), offset);
       offset += hashLen;
     }
 

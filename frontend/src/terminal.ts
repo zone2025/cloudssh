@@ -74,17 +74,22 @@ export class SSHTerminal {
       `\x1b[36m正在连接 ${config.username}@${config.host}:${config.port}...\x1b[0m`
     );
 
-    const wsUrl = `wss://${window.location.host}/api/ssh?` +
-      `host=${encodeURIComponent(config.host)}` +
-      `&port=${config.port}` +
-      `&user=${encodeURIComponent(config.username)}` +
-      `&pass=${encodeURIComponent(config.password)}`;
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${proto}//${window.location.host}/api/ssh`;
 
     return new Promise((resolve, reject) => {
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        this.terminal.writeln('\x1b[32mWebSocket 连接已建立\x1b[0m');
+        this.terminal.writeln('\x1b[32mWebSocket 连接已建立，正在发送凭据...\x1b[0m');
+        this.ws?.send(
+          JSON.stringify({
+            host: config.host,
+            port: config.port,
+            username: config.username,
+            password: config.password,
+          })
+        );
         resolve();
       };
 
