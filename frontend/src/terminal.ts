@@ -44,6 +44,7 @@ export class SSHTerminal {
   private webglAddon!: WebglAddon;
   private ws: WebSocket | null = null;
   private container: HTMLElement;
+  private disposables: { dispose(): void }[] = [];
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId)!;
@@ -185,21 +186,25 @@ export class SSHTerminal {
         reject(new Error('WebSocket connection failed'));
       };
 
-      this.terminal.onData((data) => {
-        if (this.ws?.readyState === WebSocket.OPEN) {
-          this.ws.send(data);
-        }
-      });
+      this.disposables.push(
+        this.terminal.onData((data) => {
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(data);
+          }
+        })
+      );
 
-      this.terminal.onResize(({ cols, rows }) => {
-        if (this.ws?.readyState === WebSocket.OPEN) {
-          this.ws.send(JSON.stringify({
-            type: 'resize',
-            cols,
-            rows,
-          }));
-        }
-      });
+      this.disposables.push(
+        this.terminal.onResize(({ cols, rows }) => {
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+              type: 'resize',
+              cols,
+              rows,
+            }));
+          }
+        })
+      );
     });
   }
 
@@ -210,6 +215,9 @@ export class SSHTerminal {
   disconnect(): void {
     this.ws?.close();
     this.ws = null;
+    // Clean up event listeners to prevent duplicates on reconnect
+    this.disposables.forEach(d => d.dispose());
+    this.disposables = [];
   }
 
   dispose(): void {
